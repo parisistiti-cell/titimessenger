@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Titimessenger - Mini messagerie chiffrée</title>
+<meta name="theme-color" content="#0b3954">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<style>
+    :root {
+        --primary: #1d6fa5;
+        --secondary: #0b3954;
+        --accent: #4ea8de;
+        --bg: #f4f6f8;
+        --text: #212529;
+        --danger: #b00020;
+        --success: #1f7a37;
+        --cadenas: #6f42c1;
+    }
+    * { box-sizing: border-box; }
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+    }
+    header {
+        background: var(--secondary);
+        color: white;
+        padding: 18px 20px;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.12);
+    }
+    header h1 { margin: 0; font-size: 1.4rem; }
+    header p { margin: 6px 0 0 0; font-style: italic; color: var(--accent); font-size: 0.85rem; }
+
+    main {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        padding: 20px 14px 60px 14px;
+    }
+    .carte {
+        background: white;
+        border-radius: 14px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        padding: 20px;
+        max-width: 480px;
+        width: 100%;
+    }
+    .carte h2 { margin-top: 0; font-size: 1.15rem; color: var(--secondary); }
+    .carte p.hint { font-size: 0.85rem; color: #555; margin-top: -6px; }
+
+    .champ { margin-bottom: 14px; text-align: left; }
+    .champ label { display: block; font-size: 0.85rem; font-weight: bold; margin-bottom: 4px; color: #222; }
+    .champ input, .champ textarea {
+        width: 100%;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        font-size: 16px;
+        font-family: inherit;
+    }
+    .champ textarea { resize: vertical; height: 90px; }
+    .champ input:focus, .champ textarea:focus { border-color: var(--accent); outline: none; }
+
+    .boutons { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .btn {
+        flex: 1;
+        min-width: 120px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        background: linear-gradient(to bottom, #f8f8f8, #e6e6e6);
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: 600;
+        transition: transform 0.1s;
+    }
+    .btn:hover { filter: brightness(0.97); }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary { background: var(--primary); color: white; border-color: var(--primary); }
+    .btn-cadenas { background: var(--cadenas); color: white; border-color: #5a32a3; }
+    .btn-succes { background: var(--success); color: white; border-color: #186229; }
+    .btn-secondaire { background: white; color: var(--secondary); border-color: var(--secondary); }
+
+    .statut { text-align: center; font-size: 0.85rem; min-height: 18px; margin-bottom: 10px; font-weight: bold; }
+
+    .lien-box { display: flex; gap: 6px; }
+    .lien-box input { flex: 1; }
+
+    .section-partage { border-top: 1px solid #eee; margin-top: 16px; padding-top: 14px; }
+
+    footer {
+        text-align: center;
+        font-size: 0.75rem;
+        color: #888;
+        padding: 10px;
+    }
+
+    .badge-recu {
+        display: inline-block;
+        background: var(--accent);
+        color: white;
+        border-radius: 20px;
+        padding: 3px 12px;
+        font-size: 0.75rem;
+        margin-bottom: 10px;
+        font-weight: bold;
+    }
+
+    #zoneOffline {
+        display: none;
+        background: #5c4500;
+        color: #fff3cd;
+        text-align: center;
+        font-size: 0.8rem;
+        padding: 6px 10px;
+    }
+    #zoneOffline.visible { display: block; }
+</style>
+</head>
+<body>
+
+<div id="zoneOffline">📴 Vous êtes hors-ligne. Le chiffrement/déchiffrement fonctionne quand même, tout se passe dans votre navigateur.</div>
+
+<header>
+    <h1>💬🔐 Titimessenger</h1>
+    <p>Mini messagerie chiffrée, sans compte ni serveur</p>
+</header>
+
+<main>
+    <div class="carte">
+
+        <!-- ================= MODE RÉCEPTION ================= -->
+        <div id="vueReception" style="display:none;">
+            <span class="badge-recu">📩 Message reçu</span>
+            <h2>Un message chiffré vous a été envoyé</h2>
+            <p class="hint">Entrez la clé secrète convenue avec l'expéditeur pour le déchiffrer.</p>
+
+            <div class="champ">
+                <label for="recuCle">🔑 Clé secrète</label>
+                <input type="text" id="recuCle" placeholder="Ex: MaCleSecret24" autocomplete="off">
+            </div>
+
+            <div class="boutons">
+                <button class="btn btn-succes" id="btnDechiffrer">🔓 Déchiffrer le message</button>
+            </div>
+
+            <div class="statut" id="recuStatut"></div>
+
+            <div class="champ" id="recuResultatBox" style="display:none;">
+                <label style="color:var(--secondary);">📄 Message en clair</label>
+                <textarea id="recuResultat" readonly></textarea>
+            </div>
+
+            <div class="boutons" id="recuActions" style="display:none;">
+                <button class="btn btn-secondaire" id="btnCopierRecu">📋 Copier</button>
+                <button class="btn btn-primary" id="btnRepondre">↩️ Répondre</button>
+            </div>
+
+            <div class="boutons">
+                <button class="btn btn-secondaire" id="btnNouveauDepuisReception">✏️ Écrire un nouveau message</button>
+            </div>
+        </div>
+
+        <!-- ================= MODE ÉCRITURE ================= -->
+        <div id="vueEcriture">
+            <h2>✏️ Écrire un message chiffré</h2>
+            <p class="hint">Choisissez une clé secrète et écrivez votre message. Un lien chiffré sera généré : partagez-le, puis communiquez la clé séparément (de vive voix, idéalement).</p>
+
+            <div class="champ">
+                <label for="ecrCle">🔑 Clé secrète</label>
+                <input type="text" id="ecrCle" placeholder="Ex: MaCleSecret24" autocomplete="off">
+            </div>
+
+            <div class="champ">
+                <label for="ecrTexte">💬 Votre message</label>
+                <textarea id="ecrTexte" placeholder="Tapez votre message ici..."></textarea>
+            </div>
+
+            <div class="boutons">
+                <button class="btn btn-succes" id="btnChiffrer">🔒 Chiffrer</button>
+                <button class="btn btn-cadenas" id="btnCadenas">🔐 Cadenas (double)</button>
+            </div>
+
+            <div class="statut" id="ecrStatut"></div>
+
+            <div class="section-partage" id="ecrPartageBox" style="display:none;">
+                <div class="champ">
+                    <label for="ecrLien" style="color:var(--secondary);">🔗 Lien à partager</label>
+                    <div class="lien-box">
+                        <input type="text" id="ecrLien" readonly>
+                    </div>
+                </div>
+
+                <div class="boutons">
+                    <button class="btn btn-primary" id="btnCopierLien">📋 Copier le lien</button>
+                    <button class="btn" id="btnPartagerNatif" style="display:none;">📤 Partager...</button>
+                </div>
+                <div class="boutons">
+                    <button class="btn" id="btnWhatsapp">💬 WhatsApp</button>
+                    <button class="btn" id="btnSms">📱 SMS</button>
+                    <button class="btn" id="btnEmail">✉️ Email</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</main>
+
+<footer>
+    Le chiffrement/déchiffrement se fait entièrement dans votre navigateur — rien n'est envoyé sur Internet.
+</footer>
+
+<script>
+    // ==========================================
+    // ALGORITHME TITICRYPT (identique à indexcrypt)
+    // ==========================================
+    function bytesToBase64(bytes) {
+        let binary = "";
+        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+        return btoa(binary);
+    }
+    function base64ToBytes(b64) {
+        const binary = atob(b64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return bytes;
+    }
+    // Encodage UTF-8 complet (via TextEncoder/TextDecoder) plutôt que le
+    // charCodeAt&0xFF d'origine, qui tronque les emojis et certains
+    // caractères accentués. Pour du texte purement ASCII (pas d'accents ni
+    // d'emoji), le résultat reste identique à indexcrypt / indexbaignade.
+    function encodeText(text, key) {
+        const textBytes = new TextEncoder().encode(text);
+        const keyBytes = new TextEncoder().encode(key);
+        const out = new Uint8Array(textBytes.length + 1);
+        for (let i = 0; i < textBytes.length; i++) out[i] = textBytes[i] ^ keyBytes[i % keyBytes.length];
+        out[textBytes.length] = 0x3B; // ';' terminateur
+        return bytesToBase64(out);
+    }
+    function decodeText(cipherB64, key) {
+        const allBytes = base64ToBytes(cipherB64);
+        const cipherBytes = allBytes.slice(0, allBytes.length - 1);
+        const keyBytes = new TextEncoder().encode(key);
+        const outBytes = new Uint8Array(cipherBytes.length);
+        for (let i = 0; i < cipherBytes.length; i++) outBytes[i] = cipherBytes[i] ^ keyBytes[i % keyBytes.length];
+        return new TextDecoder().decode(outBytes);
+    }
+    const DOUBLE_MARKER = "TC2::";
+    function decodeCipherText(cipherB64, key) {
+        const decoded = decodeText(cipherB64, key);
+        if (decoded.startsWith(DOUBLE_MARKER)) {
+            return { text: decodeText(decoded.slice(DOUBLE_MARKER.length), key), wasDouble: true };
+        }
+        return { text: decoded, wasDouble: false };
+    }
+    function ressembleATexteClair(txt) {
+        // Une mauvaise clé produit des octets aléatoires : décodés en UTF-8
+        // (non strict), ils contiennent presque toujours le caractère de
+        // remplacement � (U+FFFD), signe d'une séquence invalide.
+        return !!txt.trim() && !txt.includes('\uFFFD');
+    }
+
+    // ==========================================
+    // NAVIGATION ENTRE LES DEUX VUES
+    // ==========================================
+    const vueReception = document.getElementById('vueReception');
+    const vueEcriture = document.getElementById('vueEcriture');
+
+    function afficherVueEcriture(clePreremplie) {
+        vueReception.style.display = 'none';
+        vueEcriture.style.display = 'block';
+        document.getElementById('ecrCle').value = clePreremplie || '';
+        document.getElementById('ecrTexte').value = '';
+        document.getElementById('ecrStatut').textContent = '';
+        document.getElementById('ecrPartageBox').style.display = 'none';
+        document.getElementById('ecrLien').value = '';
+        history.replaceState(null, '', location.pathname);
+    }
+
+    function afficherVueReception() {
+        vueEcriture.style.display = 'none';
+        vueReception.style.display = 'block';
+        document.getElementById('recuCle').value = '';
+        document.getElementById('recuStatut').textContent = '';
+        document.getElementById('recuResultatBox').style.display = 'none';
+        document.getElementById('recuActions').style.display = 'none';
+        document.getElementById('recuResultat').value = '';
+    }
+
+    // Au chargement : si l'URL contient un message (#m=...), on ouvre en mode réception.
+    let payloadRecu = null;
+    (function detecterMessageDansUrl() {
+        const hash = location.hash;
+        if (hash && hash.startsWith('#m=')) {
+            try {
+                payloadRecu = decodeURIComponent(hash.slice(3));
+                afficherVueReception();
+                return;
+            } catch (e) { /* ignore, tombe sur le mode écriture par défaut */ }
+        }
+        afficherVueEcriture();
+    })();
+
+    // ==========================================
+    // MODE ÉCRITURE
+    // ==========================================
+    let dernierCleUtilisee = '';
+
+    function construireLienPartage(payload) {
+        return `${location.origin}${location.pathname}#m=${encodeURIComponent(payload)}`;
+    }
+
+    function chiffrerEtAfficherLien(estCadenas) {
+        const key = document.getElementById('ecrCle').value.trim();
+        const texte = document.getElementById('ecrTexte').value;
+        const statut = document.getElementById('ecrStatut');
+
+        if (!key) {
+            statut.style.color = "var(--danger)";
+            statut.textContent = "⚠️ Veuillez entrer une clé secrète.";
+            return;
+        }
+        if (!texte.trim()) {
+            statut.style.color = "var(--danger)";
+            statut.textContent = "⚠️ Veuillez écrire un message.";
+            return;
+        }
+
+        try {
+            let payload;
+            if (estCadenas) {
+                const premierPassage = encodeText(texte, key);
+                payload = encodeText(DOUBLE_MARKER + premierPassage, key);
+            } else {
+                payload = encodeText(texte, key);
+            }
+
+            dernierCleUtilisee = key;
+            const lien = construireLienPartage(payload);
+            document.getElementById('ecrLien').value = lien;
+            document.getElementById('ecrPartageBox').style.display = 'block';
+
+            statut.style.color = "var(--success)";
+            statut.textContent = estCadenas ? "✅ Message chiffré deux fois (Cadenas) !" : "✅ Message chiffré, lien prêt !";
+        } catch (e) {
+            statut.style.color = "var(--danger)";
+            statut.textContent = "❌ Erreur lors du chiffrement.";
+        }
+    }
+
+    document.getElementById('btnChiffrer').addEventListener('click', () => chiffrerEtAfficherLien(false));
+    document.getElementById('btnCadenas').addEventListener('click', () => chiffrerEtAfficherLien(true));
+
+    document.getElementById('btnCopierLien').addEventListener('click', async () => {
+        const lien = document.getElementById('ecrLien').value;
+        if (!lien) return;
+        await copierTexte(lien);
+        alert("Lien copié dans le presse-papiers !");
+    });
+
+    document.getElementById('btnWhatsapp').addEventListener('click', () => {
+        const lien = document.getElementById('ecrLien').value;
+        if (!lien) return;
+        window.open("https://wa.me/?text=" + encodeURIComponent("🔐 Message chiffré : " + lien), "_blank");
+    });
+    document.getElementById('btnSms').addEventListener('click', () => {
+        const lien = document.getElementById('ecrLien').value;
+        if (!lien) return;
+        window.location.href = "sms:?body=" + encodeURIComponent("🔐 Message chiffré : " + lien);
+    });
+    document.getElementById('btnEmail').addEventListener('click', () => {
+        const lien = document.getElementById('ecrLien').value;
+        if (!lien) return;
+        window.location.href = "mailto:?subject=" + encodeURIComponent("Message chiffré (Titimessenger)") + "&body=" + encodeURIComponent(lien);
+    });
+
+    const btnPartagerNatif = document.getElementById('btnPartagerNatif');
+    if (navigator.share) {
+        btnPartagerNatif.style.display = '';
+        btnPartagerNatif.addEventListener('click', async () => {
+            const lien = document.getElementById('ecrLien').value;
+            if (!lien) return;
+            try { await navigator.share({ title: 'Message chiffré', text: '🔐 Message chiffré :', url: lien }); }
+            catch (e) { /* annulé, rien à faire */ }
+        });
+    }
+
+    // ==========================================
+    // MODE RÉCEPTION
+    // ==========================================
+    document.getElementById('btnDechiffrer').addEventListener('click', () => {
+        const key = document.getElementById('recuCle').value.trim();
+        const statut = document.getElementById('recuStatut');
+        const box = document.getElementById('recuResultatBox');
+        const actions = document.getElementById('recuActions');
+
+        box.style.display = 'none';
+        actions.style.display = 'none';
+
+        if (!key) {
+            statut.style.color = "var(--danger)";
+            statut.textContent = "⚠️ Veuillez entrer la clé secrète.";
+            return;
+        }
+        if (!payloadRecu) {
+            statut.style.color = "var(--danger)";
+            statut.textContent = "❌ Aucun message trouvé dans ce lien.";
+            return;
+        }
+
+        try {
+            const { text } = decodeCipherText(payloadRecu, key);
+            if (!ressembleATexteClair(text)) throw new Error("clé incorrecte");
+
+            dernierCleUtilisee = key;
+            document.getElementById('recuResultat').value = text;
+            box.style.display = 'block';
+            actions.style.display = 'flex';
+            statut.style.color = "var(--success)";
+            statut.textContent = "✅ Message déchiffré avec succès !";
+        } catch (e) {
+            statut.style.color = "var(--danger)";
+            statut.textContent = "❌ Clé incorrecte.";
+        }
+    });
+
+    document.getElementById('btnCopierRecu').addEventListener('click', async () => {
+        const texte = document.getElementById('recuResultat').value;
+        if (!texte) return;
+        await copierTexte(texte);
+        alert("Copié dans le presse-papiers !");
+    });
+
+    document.getElementById('btnRepondre').addEventListener('click', () => afficherVueEcriture(dernierCleUtilisee));
+    document.getElementById('btnNouveauDepuisReception').addEventListener('click', () => afficherVueEcriture(dernierCleUtilisee));
+
+    // ==========================================
+    // UTILITAIRES
+    // ==========================================
+    async function copierTexte(texte) {
+        try {
+            await navigator.clipboard.writeText(texte);
+        } catch (e) {
+            const ta = document.createElement('textarea');
+            ta.value = texte;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+        }
+    }
+
+    window.addEventListener('offline', () => document.getElementById('zoneOffline').classList.add('visible'));
+    window.addEventListener('online', () => document.getElementById('zoneOffline').classList.remove('visible'));
+    if (!navigator.onLine) document.getElementById('zoneOffline').classList.add('visible');
+
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('service-worker.js').catch(() => {});
+        });
+    }
+</script>
+
+</body>
+</html>
