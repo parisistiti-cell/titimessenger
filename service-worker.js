@@ -1,4 +1,4 @@
-const CACHE_NAME = "titimessenger-cache-v1";
+const CACHE_NAME = "titicrypt-cache-v2";
 const ASSETS = [
   "./",
   "./index.html",
