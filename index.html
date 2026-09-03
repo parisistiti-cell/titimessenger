@@ -8,6 +8,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <style>
     :root {
@@ -124,15 +125,118 @@
         padding: 6px 10px;
     }
     #zoneOffline.visible { display: block; }
+
+    #webviewBanner {
+        display: none;
+        background: #fff3cd;
+        color: #856404;
+        padding: 10px 14px;
+        font-size: 0.8rem;
+        border-bottom: 1px solid #ffeeba;
+        line-height: 1.5;
+        text-align: center;
+    }
+    #webviewBanner.visible { display: block; }
+    #webviewBanner .boutons { margin-top: 8px; justify-content: center; }
+    #webviewBanner .btn { flex: none; min-width: auto; padding: 6px 10px; font-size: 0.8rem; }
+
+    .cle-wrap { position: relative; }
+    .cle-wrap input { padding-right: 42px; }
+    .btn-toggle-cle {
+        position: absolute;
+        right: 4px;
+        top: 4px;
+        bottom: 4px;
+        width: 34px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        font-size: 1rem;
+    }
+
+    .btn-help {
+        width: 34px;
+        height: 34px;
+        min-width: auto;
+        flex: none;
+        border-radius: 50%;
+        border: 1px solid #d9a900;
+        background: radial-gradient(circle at 35% 30%, #ffe680, #ffcd00);
+        color: #4a3600;
+        font-weight: 800;
+        padding: 0;
+        cursor: pointer;
+        font-size: 1rem;
+    }
+    .titre-ligne { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+    #qrWrap { display: none; text-align: center; margin-top: 10px; }
+    #qrContainer { display: inline-block; padding: 10px; background: white; border: 1px solid #eee; border-radius: 8px; }
+
+    .help-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.45);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+    .help-overlay.open { display: flex; }
+    .help-modal {
+        background: #fff;
+        width: 100%;
+        max-width: 480px;
+        max-height: 85vh;
+        border-radius: 10px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    .help-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 18px;
+        background: var(--secondary);
+        color: white;
+    }
+    .help-modal-header h2 { margin: 0; font-size: 1.05rem; }
+    .help-modal-close {
+        background: transparent;
+        border: none;
+        color: white;
+        font-size: 1.2rem;
+        cursor: pointer;
+    }
+    .help-modal-body { padding: 16px 18px; overflow-y: auto; font-size: 0.88rem; line-height: 1.5; }
+    .help-modal-body h3 { color: var(--secondary); font-size: 0.95rem; margin-bottom: 6px; }
+    .help-modal-body ul { padding-left: 20px; margin-top: 4px; }
+    .help-modal-body li { margin-bottom: 6px; }
 </style>
 </head>
 <body>
 
 <div id="zoneOffline">📴 Vous êtes hors-ligne. Le chiffrement/déchiffrement fonctionne quand même, tout se passe dans votre navigateur.</div>
 
+<div id="webviewBanner">
+    ⚠️ Vous semblez utiliser le navigateur intégré d'une application (pas Chrome/Safari), ce qui peut bloquer le presse-papiers ou les liens.
+    <div class="boutons">
+        <button class="btn btn-secondaire" id="btnOpenExternalBrowser">🌐 Ouvrir dans le navigateur</button>
+        <button class="btn btn-secondaire" id="btnCopyPageLink">📋 Copier le lien</button>
+    </div>
+</div>
+
 <header>
-    <h1>💬🔐 Titimessenger</h1>
-    <p>Mini messagerie chiffrée, sans compte ni serveur</p>
+    <div class="titre-ligne">
+        <div>
+            <h1>💬🔐 Titimessenger</h1>
+            <p>Mini messagerie chiffrée, sans compte ni serveur</p>
+        </div>
+        <button type="button" class="btn-help" id="btnHelp" title="Aide" aria-label="Ouvrir l'aide">?</button>
+    </div>
 </header>
 
 <main>
@@ -146,7 +250,10 @@
 
             <div class="champ">
                 <label for="recuCle">🔑 Clé secrète</label>
-                <input type="text" id="recuCle" placeholder="Ex: MaCleSecret24" autocomplete="off">
+                <div class="cle-wrap">
+                    <input type="password" id="recuCle" placeholder="Ex: MaCleSecret24" autocomplete="off">
+                    <button type="button" class="btn-toggle-cle" data-cible="recuCle">🙈</button>
+                </div>
             </div>
 
             <div class="boutons">
@@ -177,7 +284,10 @@
 
             <div class="champ">
                 <label for="ecrCle">🔑 Clé secrète</label>
-                <input type="text" id="ecrCle" placeholder="Ex: MaCleSecret24" autocomplete="off">
+                <div class="cle-wrap">
+                    <input type="password" id="ecrCle" placeholder="Ex: MaCleSecret24" autocomplete="off">
+                    <button type="button" class="btn-toggle-cle" data-cible="ecrCle">🙈</button>
+                </div>
             </div>
 
             <div class="champ">
@@ -201,11 +311,26 @@
                 </div>
 
                 <div class="boutons">
+                    <button class="btn btn-cadenas" id="btnGenerateQr">📱 Générer un QR code</button>
+                </div>
+                <div id="qrWrap">
+                    <div id="qrContainer"></div>
+                    <div class="boutons" style="margin-top:8px;">
+                        <button class="btn btn-secondaire" id="btnCopyQrImage">📋 Copier l'image</button>
+                        <button class="btn btn-secondaire" id="btnSaveQrImage">💾 Enregistrer l'image</button>
+                    </div>
+                </div>
+                <div class="statut" id="qrStatut"></div>
+
+                <div class="boutons">
                     <button class="btn btn-primary" id="btnCopierLien">📋 Copier le lien</button>
                     <button class="btn" id="btnPartagerNatif" style="display:none;">📤 Partager...</button>
                 </div>
                 <div class="boutons">
                     <button class="btn" id="btnWhatsapp">💬 WhatsApp</button>
+                    <button class="btn" id="btnTelegram">✈️ Telegram</button>
+                </div>
+                <div class="boutons">
                     <button class="btn" id="btnSms">📱 SMS</button>
                     <button class="btn" id="btnEmail">✉️ Email</button>
                 </div>
@@ -215,11 +340,115 @@
     </div>
 </main>
 
+<div class="help-overlay" id="helpOverlay" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <div class="help-modal">
+        <div class="help-modal-header">
+            <h2 id="helpTitle">❓ Aide — Titimessenger</h2>
+            <button type="button" class="help-modal-close" id="helpClose" aria-label="Fermer l'aide">✕</button>
+        </div>
+        <div class="help-modal-body">
+            <p>Titimessenger permet d'envoyer un message chiffré à quelqu'un sans compte ni serveur : le message chiffré est encodé directement dans un <strong>lien</strong> ou un <strong>QR code</strong>.</p>
+
+            <h3>🔑 La clé</h3>
+            <ul>
+                <li>Choisissez une clé secrète et communiquez-la à votre destinataire <strong>séparément</strong> du lien (de vive voix, idéalement) — jamais dans le même message.</li>
+                <li>Le bouton 🙈/👁️ affiche ou masque la clé à l'écran.</li>
+            </ul>
+
+            <h3>✏️ Écrire un message</h3>
+            <ul>
+                <li><strong>🔒 Chiffrer</strong> : chiffre votre message avec la clé.</li>
+                <li><strong>🔐 Cadenas</strong> : chiffre le message deux fois de suite, pour une protection renforcée.</li>
+                <li>Un <strong>lien</strong> est alors généré : envoyez-le par WhatsApp, Telegram, SMS, e-mail, ou via le QR code.</li>
+            </ul>
+
+            <h3>📱 QR code</h3>
+            <ul>
+                <li><strong>Générer un QR code</strong> crée une image qui ouvre directement Titimessenger avec le message déjà chargé — pratique en face à face, il suffit de le scanner puis de taper la clé.</li>
+                <li>Le texte codé est placé après le <code>#</code> du lien : il n'est jamais envoyé à un serveur, tout reste entre les deux appareils.</li>
+            </ul>
+
+            <h3>📩 Recevoir un message</h3>
+            <ul>
+                <li>En ouvrant le lien reçu (ou en scannant le QR code), Titimessenger s'ouvre directement en mode réception.</li>
+                <li>Entrez la clé secrète, cliquez sur <strong>Déchiffrer</strong>, et le message apparaît en clair.</li>
+                <li><strong>↩️ Répondre</strong> permet d'écrire une réponse avec la même clé déjà pré-remplie.</li>
+            </ul>
+
+            <h3>🔐 Bon à savoir</h3>
+            <ul>
+                <li>Tout le chiffrement se fait dans votre navigateur : rien n'est envoyé sur Internet, aucun message n'est stocké nulle part.</li>
+                <li>Sans la bonne clé, impossible de relire le message — conservez-la précieusement.</li>
+                <li>⚠️ Pour que le lien/QR code fonctionne pour quelqu'un d'autre, cette page doit être hébergée en ligne (une vraie adresse <code>https://...</code>), pas ouverte comme simple fichier local.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
 <footer>
     Le chiffrement/déchiffrement se fait entièrement dans votre navigateur — rien n'est envoyé sur Internet.
 </footer>
 
 <script>
+    // ==========================================
+    // DÉTECTION NAVIGATEUR INTÉGRÉ (WEBVIEW)
+    // ==========================================
+    (function detecterNavigateurIntegre() {
+        const ua = navigator.userAgent || '';
+        const isAndroid = /Android/i.test(ua);
+        const isIOSDevice = /iPad|iPhone|iPod/i.test(ua) && !window.MSStream;
+        const knownInAppSignatures = /FBAN|FBAV|Instagram|Line\/|MicroMessenger|Twitter|TikTok|Snapchat|Pinterest|LinkedInApp/i.test(ua);
+        const isAndroidWebView = isAndroid && (/; ?wv\)/i.test(ua) || (!/Chrome\//i.test(ua) && !/Firefox\//i.test(ua) && !/SamsungBrowser\//i.test(ua)));
+        const isIOSEmbedded = isIOSDevice && !/Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS/i.test(ua);
+
+        if (knownInAppSignatures || isAndroidWebView || isIOSEmbedded) {
+            document.getElementById('webviewBanner').classList.add('visible');
+        }
+    })();
+
+    document.getElementById('btnOpenExternalBrowser').addEventListener('click', () => {
+        const url = window.location.href;
+        const ua = navigator.userAgent || '';
+        if (/Android/i.test(ua)) {
+            const stripped = url.replace(/^https?:\/\//, '');
+            window.location.href = 'intent://' + stripped + '#Intent;scheme=https;package=com.android.chrome;end';
+        } else if (/iPad|iPhone|iPod/i.test(ua)) {
+            window.location.href = url.replace(/^https?:\/\//, 'x-safari-https://');
+        } else {
+            window.open(url, '_blank');
+        }
+    });
+
+    document.getElementById('btnCopyPageLink').addEventListener('click', async () => {
+        const url = window.location.href;
+        try {
+            await navigator.clipboard.writeText(url);
+            alert("Lien copié ! Collez-le dans l'adresse de Chrome (Android) ou Safari (iPhone).");
+        } catch (e) {
+            prompt('Copiez ce lien et collez-le dans Chrome ou Safari :', url);
+        }
+    });
+
+    // ==========================================
+    // TOGGLE VISIBILITÉ DES CHAMPS CLÉ
+    // ==========================================
+    document.querySelectorAll('.btn-toggle-cle').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const champ = document.getElementById(btn.dataset.cible);
+            const masque = champ.type === 'password';
+            champ.type = masque ? 'text' : 'password';
+            btn.textContent = masque ? '👁️' : '🙈';
+        });
+    });
+
+    // ==========================================
+    // MODALE D'AIDE
+    // ==========================================
+    const helpOverlay = document.getElementById('helpOverlay');
+    document.getElementById('btnHelp').addEventListener('click', () => helpOverlay.classList.add('open'));
+    document.getElementById('helpClose').addEventListener('click', () => helpOverlay.classList.remove('open'));
+    helpOverlay.addEventListener('click', (e) => { if (e.target === helpOverlay) helpOverlay.classList.remove('open'); });
+
     // ==========================================
     // ALGORITHME TITICRYPT (identique à indexcrypt)
     // ==========================================
@@ -272,6 +501,7 @@
     // ==========================================
     // NAVIGATION ENTRE LES DEUX VUES
     // ==========================================
+    let currentQrLink = null; // utilisé par afficherVueEcriture() plus bas, déclaré tôt pour éviter tout accès avant initialisation
     const vueReception = document.getElementById('vueReception');
     const vueEcriture = document.getElementById('vueEcriture');
 
@@ -283,6 +513,13 @@
         document.getElementById('ecrStatut').textContent = '';
         document.getElementById('ecrPartageBox').style.display = 'none';
         document.getElementById('ecrLien').value = '';
+        const qrWrapEl = document.getElementById('qrWrap');
+        if (qrWrapEl) qrWrapEl.style.display = 'none';
+        const qrContainerEl = document.getElementById('qrContainer');
+        if (qrContainerEl) qrContainerEl.innerHTML = '';
+        const qrStatutEl = document.getElementById('qrStatut');
+        if (qrStatutEl) qrStatutEl.textContent = '';
+        currentQrLink = null;
         history.replaceState(null, '', location.pathname);
     }
 
@@ -372,6 +609,11 @@
         if (!lien) return;
         window.open("https://wa.me/?text=" + encodeURIComponent("🔐 Message chiffré : " + lien), "_blank");
     });
+    document.getElementById('btnTelegram').addEventListener('click', () => {
+        const lien = document.getElementById('ecrLien').value;
+        if (!lien) return;
+        window.open("https://t.me/share/url?url=" + encodeURIComponent(lien) + "&text=" + encodeURIComponent("🔐 Message chiffré"), "_blank");
+    });
     document.getElementById('btnSms').addEventListener('click', () => {
         const lien = document.getElementById('ecrLien').value;
         if (!lien) return;
@@ -381,6 +623,114 @@
         const lien = document.getElementById('ecrLien').value;
         if (!lien) return;
         window.location.href = "mailto:?subject=" + encodeURIComponent("Message chiffré (Titimessenger)") + "&body=" + encodeURIComponent(lien);
+    });
+
+    // ==========================================
+    // QR CODE DU LIEN DE PARTAGE
+    // ==========================================
+    const qrContainer = document.getElementById('qrContainer');
+    const qrWrap = document.getElementById('qrWrap');
+    const qrStatus = document.getElementById('qrStatut');
+
+    document.getElementById('btnGenerateQr').addEventListener('click', () => {
+        qrStatus.textContent = "";
+        const lien = document.getElementById('ecrLien').value;
+
+        if (!lien) {
+            qrStatus.style.color = "var(--danger)";
+            qrStatus.textContent = "⚠️ Chiffrez d'abord un message.";
+            qrWrap.style.display = 'none';
+            return;
+        }
+        if (typeof QRCode === 'undefined') {
+            qrStatus.style.color = "var(--danger)";
+            qrStatus.textContent = "❌ Impossible de générer le QR code (bibliothèque non chargée — vérifiez la connexion internet).";
+            return;
+        }
+
+        const isLocalFile = window.location.protocol === 'file:';
+        qrContainer.innerHTML = "";
+        try {
+            new QRCode(qrContainer, {
+                text: lien,
+                width: 200,
+                height: 200,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.M
+            });
+        } catch (e) {
+            qrStatus.style.color = "var(--danger)";
+            qrStatus.textContent = "❌ Impossible de générer le QR code.";
+            return;
+        }
+
+        currentQrLink = lien;
+        qrWrap.style.display = 'block';
+
+        qrStatus.style.color = isLocalFile ? "var(--danger)" : "var(--success)";
+        qrStatus.textContent = isLocalFile
+            ? "✅ QR code prêt. ⚠️ Cette page est ouverte en local (file://) : ce lien ne fonctionnera que sur cet appareil. Mettez la page en ligne pour que le partage fonctionne ailleurs."
+            : "✅ QR code prêt. En le scannant, on arrive directement sur le message chiffré — il suffit d'entrer la clé.";
+    });
+
+    function getQrCanvas() {
+        return qrContainer.querySelector('canvas');
+    }
+    function getQrPngBlob(callback) {
+        const canvas = getQrCanvas();
+        if (canvas && canvas.toBlob) {
+            canvas.toBlob(callback, 'image/png');
+            return;
+        }
+        const img = qrContainer.querySelector('img');
+        if (!img || !img.src) { callback(null); return; }
+        fetch(img.src).then(r => r.blob()).then(callback).catch(() => callback(null));
+    }
+
+    document.getElementById('btnCopyQrImage').addEventListener('click', () => {
+        if (!currentQrLink) return;
+        if (!navigator.clipboard || !window.ClipboardItem) {
+            qrStatus.style.color = "var(--danger)";
+            qrStatus.textContent = "❌ Votre navigateur ne permet pas de copier une image. Utilisez « Enregistrer l'image ».";
+            return;
+        }
+        getQrPngBlob(async (blob) => {
+            if (!blob) {
+                qrStatus.style.color = "var(--danger)";
+                qrStatus.textContent = "❌ Impossible de récupérer l'image du QR code.";
+                return;
+            }
+            try {
+                await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                qrStatus.style.color = "var(--success)";
+                qrStatus.textContent = "✅ QR code copié dans le presse-papiers (image seule).";
+            } catch (e) {
+                qrStatus.style.color = "var(--danger)";
+                qrStatus.textContent = "❌ Impossible de copier l'image (autorisez le presse-papiers dans votre navigateur).";
+            }
+        });
+    });
+
+    document.getElementById('btnSaveQrImage').addEventListener('click', () => {
+        if (!currentQrLink) return;
+        getQrPngBlob((blob) => {
+            if (!blob) {
+                qrStatus.style.color = "var(--danger)";
+                qrStatus.textContent = "❌ Impossible de récupérer l'image du QR code.";
+                return;
+            }
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'qrcode_titimessenger.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 2000);
+            qrStatus.style.color = "var(--success)";
+            qrStatus.textContent = "✅ QR code enregistré (image seule).";
+        });
     });
 
     const btnPartagerNatif = document.getElementById('btnPartagerNatif');
